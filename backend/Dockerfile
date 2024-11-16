@@ -1,13 +1,19 @@
 FROM python:3.13-slim-bookworm
 
-ENV PYTHONUNBUFFERED=1
-
 WORKDIR /app
 
+# Install poetry
+RUN pip install poetry
+
+# Copy dependency files
 COPY pyproject.toml poetry.lock ./
 
-RUN pip install poetry && \
-    poetry config virtualenvs.create false && \
-    poetry install --no-root
+# Generate lock file and install dependencies
+RUN poetry config virtualenvs.create false \
+    && poetry lock --no-update \
+    && poetry install --no-root
+
+# Copy the rest of the application
+COPY . .
 
 EXPOSE 8000

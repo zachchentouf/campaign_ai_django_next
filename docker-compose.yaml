@@ -1,4 +1,13 @@
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 10s
+      retries: 5
   db:
     image: postgres
     expose:
@@ -16,7 +25,11 @@ services:
       timeout: 2s
       retries: 10
   api:
-    command: bash -c "poetry install && poetry run python src/manage.py migrate && poetry run python src/manage.py runserver 0.0.0.0:8000"
+    command: >
+      bash -c "poetry lock --no-update &&
+      poetry install &&
+      poetry run python src/manage.py migrate &&
+      poetry run python src/manage.py runserver 0.0.0.0:8000"
     build:
       context: backend
     expose:
@@ -30,6 +43,42 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+  celery_worker:
+    build:
+      context: backend
+    command: >
+      bash -c "poetry lock --no-update &&
+      poetry install &&
+      cd src &&
+      poetry run celery -A backend worker --loglevel=info"
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env.backend
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+  celery_beat:
+    build:
+      context: backend
+    command: >
+      bash -c "poetry lock --no-update &&
+      poetry install &&
+      cd src &&
+      poetry run celery -A backend beat --loglevel=info"
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env.backend
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
   web:
     command: bash -c "pnpm install -r && pnpm --filter web dev"
     build:

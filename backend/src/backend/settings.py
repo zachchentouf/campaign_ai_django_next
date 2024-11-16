@@ -4,11 +4,42 @@ from pathlib import Path
 from django.core.management.utils import get_random_secret_key
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
+from celery.schedules import crontab
 
 ######################################################################
 # General
 ######################################################################
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Celery settings
+CELERY_BROKER_URL = 'redis://redis:6379/0'
+CELERY_RESULT_BACKEND = "redis://redis:6379/0"
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Additional Celery settings
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+CELERY_BEAT_SCHEDULE = {
+    "daily-twitter-scraping": {
+        "task": "undecided_voters.tasks.run_daily_scraping",
+        "schedule": crontab(hour=0, minute=0),
+        "kwargs": {"source": "twitter"}
+    },
+    "daily-newsapi-scraping": {
+        "task": "undecided_voters.tasks.run_daily_scraping",
+        "schedule": crontab(hour=1, minute=0),  # Run at 1 AM
+        "kwargs": {"source": "newsapi"}
+    },
+    "weekly-analysis": {
+        "task": "undecided_voters.tasks.run_weekly_analysis",
+        "schedule": crontab(day_of_week=0, hour=2, minute=0),  # Run Sunday 2AM
+        "kwargs": {"source": "all"}
+    },
+}
 
 SECRET_KEY = environ.get("SECRET_KEY", get_random_secret_key())
 
@@ -21,6 +52,12 @@ WSGI_APPLICATION = "backend.wsgi.application"
 ROOT_URLCONF = "backend.urls"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+TWITTER_USERNAME = environ.get("TWITTER_USERNAME", "")
+TWITTER_EMAIL = environ.get("TWITTER_EMAIL", "")
+TWITTER_PASSWORD = environ.get("TWITTER_PASSWORD", "")
+OPENAI_API_KEY = environ.get("OPENAI_API_KEY", "")
+NEWSAPI_KEY = environ.get("NEWSAPI_KEY", "")
 
 ######################################################################
 # Apps
@@ -37,6 +74,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "drf_spectacular",
     "backend",
+    "undecided_voters",
 ]
 
 ######################################################################

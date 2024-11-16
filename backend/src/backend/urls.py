@@ -7,10 +7,13 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
+from undecided_voters.views import AnalysisViewSet
+
 from .api import UserViewSet
 
 router = routers.DefaultRouter()
 router.register("users", UserViewSet, basename="api-users")
+router.register("analysis", AnalysisViewSet, basename="api-analysis")
 
 urlpatterns = [
     path(

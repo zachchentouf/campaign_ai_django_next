@@ -11,6 +11,15 @@ interface StateProjection {
   margin: number;
 }
 
+interface ElectionPreset {
+  demographicSupport: Record<string, number>;
+  issueStances: Record<string, { position: number; importance: number }>;
+  nationalPopularVote?: {
+    democratic: number;
+    republican: number;
+  };
+}
+
 export function ElectoralCalculator() {
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [demographicSupport, setDemographicSupport] = useState(
@@ -19,62 +28,71 @@ export function ElectoralCalculator() {
   const [issueStances, setIssueStances] = useState(
     ELECTION_PRESETS["2020"].issueStances
   );
+  const [currentPreset, setCurrentPreset] = useState<"2020" | "2016">("2020");
+
+  const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const year = e.target.value as "2020" | "2016";
+    setCurrentPreset(year);
+    const preset = ELECTION_PRESETS[year];
+    setDemographicSupport(preset.demographicSupport);
+    setIssueStances({ ...preset.issueStances });
+  };
 
   const calculateStateProjection = (stateAbbr: string): StateProjection => {
     const state = STATE_DATA[stateAbbr];
     if (!state)
       return { democratic: 0, republican: 0, winProbability: 0, margin: 0 };
 
-    let democraticShare = 0;
-    let totalVoters = 0;
-    let uncertaintyFactor = 0;
+    const totalVoters = Object.values(state.demographics).reduce(
+      (sum, data) => sum + data.voters,
+      0
+    );
 
-    // Calculate demographic-based support
+    const baselineResult = state.historicalResults[currentPreset];
+    let democraticShare = baselineResult.democraticShare;
+
     Object.entries(state.demographics).forEach(([demographic, data]) => {
-      const support =
-        demographicSupport[demographic as keyof typeof demographicSupport] ||
+      const currentSupport =
+        demographicSupport[demographic as keyof typeof demographicSupport] ??
         50;
-      democraticShare += data.voters * (support / 100);
-      totalVoters += data.voters;
+      const baselineSupport =
+        ELECTION_PRESETS[currentPreset].demographicSupport[
+          demographic as keyof typeof demographicSupport
+        ] ?? 50;
 
-      // Add uncertainty based on historical variance
-      uncertaintyFactor += data.volatility || 1;
+      const shift = currentSupport - baselineSupport;
+      const weightedShift = shift * (data.voters / totalVoters);
+      democraticShare += weightedShift * 0.5;
     });
 
-    // Add issue-based adjustments
     Object.entries(issueStances).forEach(([issue, stance]) => {
-      const correlation = state.issueCorrelations[issue] || 0;
-      const adjustment =
-        (stance.position - 50) * (stance.importance / 100) * correlation;
-      democraticShare += (adjustment / 100) * totalVoters;
+      const correlation = state.issueCorrelations[issue] ?? 0;
+      const baselineStance =
+        ELECTION_PRESETS[currentPreset].issueStances[issue]?.position ?? 50;
 
-      // Issues increase uncertainty
-      uncertaintyFactor += Math.abs(adjustment) * 0.2;
+      const positionShift = stance.position - baselineStance;
+      const adjustment =
+        positionShift * (stance.importance / 100) * correlation * 0.1;
+      democraticShare += adjustment;
     });
 
-    const democraticPercentage = (democraticShare / totalVoters) * 100;
-    const republicanPercentage = 100 - democraticPercentage;
-    const margin = democraticPercentage - republicanPercentage;
-
-    // Calculate win probability using a normal distribution
-    const sigma = 2 + uncertaintyFactor; // Base uncertainty plus factors
-    const winProbability = 1 - normalCDF(0, margin, sigma);
+    democraticShare = Math.max(35, Math.min(65, democraticShare));
+    const republicanShare = 100 - democraticShare;
+    const margin = democraticShare - republicanShare;
 
     return {
-      democratic: democraticPercentage,
-      republican: republicanPercentage,
-      winProbability,
+      democratic: democraticShare,
+      republican: republicanShare,
+      winProbability: 1 - normalCDF(0, margin, 2),
       margin: Math.abs(margin),
     };
   };
 
-  // Helper function for normal cumulative distribution
   const normalCDF = (x: number, mean: number, sigma: number) => {
     const z = (x - mean) / (Math.SQRT2 * sigma);
     return 0.5 * (1 + erf(z));
   };
 
-  // Error function approximation
   const erf = (x: number) => {
     const sign = x >= 0 ? 1 : -1;
     x = Math.abs(x);
@@ -97,7 +115,6 @@ export function ElectoralCalculator() {
       const projection = calculateStateProjection(stateAbbr);
       const { winProbability, margin } = projection;
 
-      // Calculate color based on win probability and margin
       const intensity = Math.min(255, Math.round((margin * 255) / 20));
       const alpha = 0.2 + (intensity / 255) * 0.8;
 
@@ -148,21 +165,14 @@ export function ElectoralCalculator() {
   return (
     <div className="p-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Preset Selection and State Details */}
         <div className="md:col-span-2">
           <div className="mb-4 flex justify-between items-center">
             <div className="flex gap-4 items-center">
               <div className="text-xl font-bold">Electoral Projection</div>
               <select
                 className="border rounded p-1"
-                onChange={(e) => {
-                  const preset =
-                    ELECTION_PRESETS[
-                      e.target.value as keyof typeof ELECTION_PRESETS
-                    ];
-                  setDemographicSupport(preset.demographicSupport);
-                  setIssueStances(preset.issueStances);
-                }}
+                onChange={handlePresetChange}
+                value={currentPreset}
               >
                 <option value="2020">2020 Election</option>
                 <option value="2016">2016 Election</option>
@@ -181,7 +191,6 @@ export function ElectoralCalculator() {
             </div>
           </div>
 
-          {/* Selected State Details - Moved from bottom */}
           {selectedState && STATE_DATA[selectedState] && (
             <div className="mb-4 bg-white rounded shadow p-4">
               <h3 className="font-bold mb-2">
@@ -204,14 +213,14 @@ export function ElectoralCalculator() {
                   })()}
                 </div>
                 <div className="text-sm">
-                  2020 Result: D:{" "}
+                  {currentPreset} Result: D:{" "}
                   {
-                    STATE_DATA[selectedState].historicalResults["2020"]
+                    STATE_DATA[selectedState].historicalResults[currentPreset]
                       .democraticShare
                   }
                   % | R:{" "}
                   {
-                    STATE_DATA[selectedState].historicalResults["2020"]
+                    STATE_DATA[selectedState].historicalResults[currentPreset]
                       .republicanShare
                   }
                   %
@@ -235,7 +244,6 @@ export function ElectoralCalculator() {
           </div>
         </div>
 
-        {/* Controls Panel */}
         <div className="space-y-4">
           <div className="bg-white rounded shadow p-4">
             <h3 className="font-bold mb-4">Demographic Support Levels</h3>
@@ -261,7 +269,10 @@ export function ElectoralCalculator() {
             ))}
           </div>
 
-          <IssueAnalysisPanel onIssueChange={setIssueStances} />
+          <IssueAnalysisPanel
+            issues={issueStances}
+            onIssueChange={setIssueStances}
+          />
         </div>
       </div>
     </div>

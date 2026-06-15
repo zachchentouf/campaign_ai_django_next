@@ -125,6 +125,17 @@ Then trigger scraping and analysis as shown above.
 - **Change the default Postgres password** before any real deployment. It is hardcoded as `change-password` in `docker-compose.yaml` for local dev convenience only.
 - **Set `DEBUG=0`** in `.env.backend` for any non-local environment. Debug mode leaks stack traces and disables Django's security headers.
 
+## Screenshots
+
+**Weekly Voter Sentiment Analyses — Card 1 (NewsAPI, 142 posts)**
+![Analyses week 1](Screenshot%202026-06-15%20at%205.24.25%E2%80%AFPM.png)
+
+**Analyses — Card 2 (NewsAPI, 118 posts)**
+![Analyses week 2](Screenshot%202026-06-15%20at%205.24.31%E2%80%AFPM.png)
+
+**Analyses — Card 3 (Twitter, 203 posts)**
+![Analyses week 3](Screenshot%202026-06-15%20at%205.24.39%E2%80%AFPM.png)
+
 ## Tech stack
 
 **Backend:** Python 3.13, Django, Django REST Framework, Celery, Redis, Postgres, Poetry

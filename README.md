@@ -1,249 +1,90 @@
-# Turbo - Django & Next.js boilerplate <!-- omit from toc -->
+> **AI Generated** — This README was written by Claude based on reading the actual source code.
 
-Turbo is a simple bootstrap template for Django and Next.js, combining both frameworks under one monorepository, including best practices.
+# Campaign AI — Django + Next.js Monorepo
 
-## Features <!-- omit from toc -->
+A full-stack political intelligence tool that scrapes social media and news sources, runs weekly AI analysis on undecided voter sentiment, and surfaces results through a Next.js dashboard.
 
-- **Microsites**: supports several front ends connected to API backend
-- **API typesafety**: exported types from backend stored in shared front end package
-- **Server actions**: handling form submissions in server part of Next project
-- **Tailwind CSS**: built-in support for all front end packages and sites
-- **Docker Compose**: start both front end and backend by running `docker compose up`
-- **Auth system**: incorporated user authentication based on JWT tokens
-- **Profile management**: update profile information from the front end
-- **Registrations**: creation of new user accounts (activation not included)
-- **Admin theme**: Unfold admin theme with user & group management
-- **Custom user model**: extended default Django user model
-- **Visual Studio Code**: project already constains VS Code containers and tasks
+## What it does
 
-## Table of contents <!-- omit from toc -->
+The backend collects posts from Twitter and News API, runs them through OpenAI to produce weekly breakdowns of why voters are undecided (e.g. `{"economy": 45, "healthcare": 30}`), and stores scraped posts, analysis results, and supporting evidence in Postgres. The frontend displays this data and is protected by JWT-based authentication.
 
-- [Quickstart](#quickstart)
-  - [Environment files configuration](#environment-files-configuration)
-  - [Running docker compose](#running-docker-compose)
-- [Included dependencies](#included-dependencies)
-  - [Backend dependencies](#backend-dependencies)
-  - [Front end dependencies](#front-end-dependencies)
-- [Front end project structure](#front-end-project-structure)
-  - [Adding microsite to docker-compose.yaml](#adding-microsite-to-docker-composeyaml)
-- [Authentication](#authentication)
-  - [Configuring env variables](#configuring-env-variables)
-  - [User accounts on the backend](#user-accounts-on-the-backend)
-  - [Authenticated paths on frontend](#authenticated-paths-on-frontend)
-- [API calls to backend](#api-calls-to-backend)
-  - [API Client](#api-client)
-  - [Updating OpenAPI schema](#updating-openapi-schema)
-  - [Swagger](#swagger)
-  - [Client side requests](#client-side-requests)
-- [Developing in VS Code](#developing-in-vs-code)
+## Architecture
 
-## Quickstart
-
-To start using Turbo, it is needed to clone the repository to your local machine and then run `docker compose`, which will take care about the installation process. The only prerequisite for starting Turbo template is to have `docker compose` installed and preconfiguring files with environment variables.
-
-```bash
-git clone https://github.com/unfoldadmin/turbo.git
-cd turbo
+```
+campaign_ai_django_next/
+├── backend/                  # Django REST API + Celery workers
+│   └── src/
+│       ├── backend/          # Core app: custom User model, auth, settings
+│       ├── undecided_voters/ # Scraping, analysis tasks, data models
+│       └── analysis/         # Analysis views
+└── frontend/                 # Next.js monorepo (pnpm workspaces)
+    ├── apps/web/             # Main Next.js app
+    └── packages/
+        ├── types/            # OpenAPI-generated types shared from backend
+        └── ui/               # Shared UI components
 ```
 
-### Environment files configuration
+## Services (Docker Compose)
 
-Before you can run `docker compose up`, you have to set up two files with environment variables. Both files are loaded via `docker compose` and variables are available within docker containers.
+| Service | Port | Description |
+|---|---|---|
+| `web` | 3001 | Next.js frontend |
+| `api` | 8000 | Django REST API + Swagger at `/api/schema/swagger-ui/` |
+| `db` | internal | Postgres |
+| `redis` | 6379 | Celery broker |
+| `celery_worker` | — | Runs scraping/analysis tasks |
+| `celery_beat` | — | Schedules recurring tasks |
+
+## Running locally
+
+**Prerequisites:** Docker Desktop
 
 ```bash
-cp .env.backend.template .env.backend # set SECRET_KEY and DEBUG=1 for debug mode on
-cp .env.frontend.template .env.frontend # set NEXTAUTH_SECRET to a value "openssl rand -base64 32"
-```
+git clone <this-repo>
+cd campaign_ai_django_next
 
-For more advanced environment variables configuration for the front end, it is recommended to read official [Next.js documentation](https://nextjs.org/docs/pages/building-your-application/configuring/environment-variables) about environment variables where it is possible to configure specific variables for each microsite.
+# Create env files
+cp .env.backend.template .env.backend   # set SECRET_KEY and DEBUG=1
+cp .env.frontend.template .env.frontend  # set NEXTAUTH_SECRET (openssl rand -base64 32)
 
-On the backend it is possible to use third party libraries for loading environment variables. In case that loading variables through `os.environ` is not fulfilling the requriements, we recommend using [django-environ](https://github.com/joke2k/django-environ) application.
-
-### Running docker compose
-
-```bash
 docker compose up
 ```
 
-After successful installation, it will be possible to access both front end (http://localhost:3000) and backend (http://localhost:8000) part of the system from the browsers.
+Frontend: http://localhost:3001
+Django admin: http://localhost:8000/admin
+Swagger: http://localhost:8000/api/schema/swagger-ui/
 
-**NOTE**: Don't forget to change database credentials in docker-compose.yaml and in .env.backend by configuring `DATABASE_PASSWORD`.
-
-## Included dependencies
-
-The general rule when it comes to dependencies is to have minimum of third party applications or plugins to avoid future problems updating the project and keep the maintenance of applications is minimal.
-
-### Backend dependencies
-
-For dependency management in Django application we are using Poetry. When starting the project through the `docker compose` command, it is checked for new dependencies as well. In the case they are not installed, docker will install them before running development server.
-
-- **[djangorestframework](https://github.com/encode/django-rest-framework)** - REST API support
-- **[djangorestframework-simplejwt](https://github.com/jazzband/djangorestframework-simplejwt)** - JWT auth for REST API
-- **[drf-spectacular](https://github.com/tfranzel/drf-spectacular)** - OpenAPI schema generator
-- **[django-unfold](https://github.com/unfoldadmin/django-unfold)** - Admin theme for Django admin panel
-
-Below, you can find a command to install new dependency into backend project.
-
-```bash
-docker compose exec api poetry add djangorestframework
-```
-
-### Front end dependencies
-
-For the frontend project, it is bit more complicated to maintain fron end dependencies than in backend part. Dependencies, can be split into two parts. First part are general dependencies available for all projects under packages and apps folders. The second part are dependencies, which are project specific.
-
-- **[next-auth](https://github.com/nextauthjs/next-auth)** - Next.js authentication
-- **[react-hook-form](https://github.com/react-hook-form/react-hook-form)** - Handling of React forms
-- **[tailwind-merge](https://github.com/dcastil/tailwind-merge)** - Tailwind CSS class names helper
-- **[zod](https://github.com/colinhacks/zod)** - Schema validation
-
-To install a global dependency for all packages and apps, use `-w` parameter. In case of development package, add `-D` argument to install it into development dependencies.
-
-```bash
-docker compose exec web pnpm add react-hook-form -w
-```
-
-To install a dependency for specific app or package, use `--filter` to specify particular package.
-
-```bash
-docker compose exec web pnpm --filter web add react-hook-form
-```
-
-## Front end project structure
-
-Project structure on the front end, it is quite different from the directory hierarchy in the backend. Turbo counts with an option that front end have multiple front ends available on various domains or ports.
-
-```text
-frontend
-| - apps       // available sites
-|   - web      // available next.js project
-| - packages   // shared packages between sites
-|   - types    // exported types from backend - api
-|   - ui       // general ui components
-```
-
-The general rule here is, if you want to have some shared code, create new package under packages/ folder. After adding new package and making it available for your website, it is needed to install the new package into website project by running a command below.
-
-```bash
-docker compose exec web pnpm --filter web add @frontend/ui
-```
-
-### Adding microsite to docker-compose.yaml
-
-If you want to have new website facing customers, create new project under apps/ directory. Keep in mind that `docker-compose.yaml` file must be adjusted to start a new project with appropriate new port.
-
-```yaml
-new_microsite:
-  command: bash -c "pnpm install -r && pnpm --filter new_microsite dev"
-  build:
-    context: frontend # Dockerfile can be same
-  volumes:
-    - ./frontend:/app
-  expose:
-    - "3001" # different port
-  ports:
-    - "3001:3001" # different port
-  env_file:
-    - .env.frontend
-  depends_on:
-    - api
-```
-
-## Authentication
-
-For the authentication, Turbo uses **django-simplejwt** and **next-auth** package to provide simple REST based JWT authentication. On the backend, there is no configuraton related to django-simplejwt so everything is set to default values.
-
-On the front end, next-auth is used to provide credentials authentication. The most important file on the front end related to authentication is `frontend/web/src/lib/auth.ts` which is containing whole business logic behind authentication.
-
-### Configuring env variables
-
-Before starting using authentication, it is crucial to configure environment variable `NEXTAUTH_SECRET` in .env.frontend file. You can set the value to the output of the command below.
-
-```bash
-openssl rand -base64 32
-```
-
-### User accounts on the backend
-
-There are two ways how to create new user account in the backend. First option is to run managed command responsible for creating superuser. It is more or less required, if you want to have an access to the Django admin. After running the command below, it will be possible to log in on the front end part of the application.
-
+**Create a superuser:**
 ```bash
 docker compose exec api poetry run python src/manage.py createsuperuser
 ```
 
-The second option how to create new user account is to register it on the front end. Turbo provides simple registration form. After account registration, it will be not possible to log in because account is inactive. Superuser needs to access Django admin and activate an account. This is a default behavior provided by Turbo, implementation of special way of account activation is currently out the scope of the project.
-
-### Authenticated paths on frontend
-
-To ensure path is only for authenticated users, it is possible to use `getServerSession` to check the status of user.
-
-This function accepts an argument with authentication options, which can be imported from `@/lib/auth` and contains credentials authentication business logic.
-
-```tsx
-import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
-
-const SomePageForAuthenticatedUsers = async () => {
-  const session = await getServerSession(authOptions);
-
-  if (session === null) {
-    return redirect("/");
-  }
-
-  return <>content</>;
-};
+**Trigger scraping manually:**
+```bash
+./trigger_scraping.sh
+./trigger_analysis.sh
 ```
 
-To require authenticated user account on multiple pages, similar business logic can be applied in `layouts.tsx`.
+## Data models
 
-```tsx
-import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+- **`ScrapingRun`** — tracks each scraping session (source, status, date range, post count)
+- **`RawPost`** — individual scraped posts with content, author, metadata (likes/retweets), publisher
+- **`WeeklyAnalysis`** — AI-generated weekly summaries: reasons JSON with percentages, detailed analysis, supporting evidence quotes
+- **`User`** — extended Django user with `created_at` / `modified_at`
 
-const AuthenticatedLayout = async ({
-  children,
-}: {
-  children: React.ReactNode;
-}) => {
-  const session = await getServerSession(authOptions);
+## Auth
 
-  if (session === null) {
-    return redirect("/");
-  }
+JWT tokens issued by Django (`djangorestframework-simplejwt`) and consumed by `next-auth` on the frontend. Set `NEXTAUTH_SECRET` in `.env.frontend` before starting.
 
-  return <>{children}</>;
-};
+## Updating the OpenAPI schema
 
-export default AuthenticatedLayout;
-```
-
-## API calls to backend
-
-Currently Turbo implements Next.js server actions in folder `frontend/apps/web/src/actions/` responsible for communication with the backend. When the server action is hit from the client, it fetches required data from Django API backend.
-
-### API Client
-
-The query between server action and Django backend is handled by using an API client generated by `openapi-typescript-codegen` package. In Turbo, there is a function `getApiClient` available in `frontend/apps/web/src/lib/api.ts` which already implements default options and authentication tokens.
-
-### Updating OpenAPI schema
-
-After changes on the backend, for example adding new fields into serializers, it is required to update typescript schema on the frontend. The schema can be updated by running command below. In VS Code, there is prepared task which will update definition.
-
+After changing Django serializers, regenerate TypeScript types:
 ```bash
 docker compose exec web pnpm openapi:generate
 ```
 
-### Swagger
+## Tech stack
 
-By default, Turbo includes Swagger for API schema which is available here `http://localhost:8000/api/schema/swagger-ui/`. Swagger can be disabled by editing `urls.py` and removing `SpectacularSwaggerView`.
-
-### Client side requests
-
-At the moment, Turbo does not contain any examples of client side requests towards the backend. All the requests are handled by server actions. For client side requests, it is recommended to use [react-query](https://github.com/TanStack/query).
-
-
-## Developing in VS Code
-
-The project contains configuration files for devcontainers so it is possible to directly work inside the container within VS Code. When the project opens in the VS Code the popup will appear to reopen the project in container. An action **Dev Containers: Reopen in Container** is available as well. Click on the reopen button and select the container which you want to work on. When you want to switch from the frontend to the backend project run **Dev Containers: Switch container** action. In case you are done and you want to work in the parent folder run **Dev Containers: Reopen Folder Locally** action
+**Backend:** Python 3.13, Django, Django REST Framework, Celery, Redis, Postgres, Poetry
+**Frontend:** Next.js 15, TypeScript, Tailwind CSS, next-auth, react-hook-form, zod, react-usa-map
+**Infra:** Docker Compose

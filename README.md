@@ -61,9 +61,20 @@ docker compose exec api poetry run python src/manage.py createsuperuser
 
 **Trigger scraping manually:**
 ```bash
-./trigger_scraping.sh
-./trigger_analysis.sh
+# 1. Scrape a source (newsapi or twitter) for a date range
+docker compose exec api poetry run python src/manage.py shell -c "
+from undecided_voters.tasks import run_daily_scraping
+run_daily_scraping.delay(source='newsapi', from_date='2024-10-01', to_date='2024-10-07')
+"
+
+# 2. Run OpenAI analysis on the scraped posts
+docker compose exec api poetry run python src/manage.py shell -c "
+from undecided_voters.tasks import run_weekly_analysis
+run_weekly_analysis.delay(source='newsapi', week_start='2024-10-01')
+"
 ```
+
+Results appear at http://localhost:3001/analyses once analysis completes.
 
 ## Data models
 
@@ -82,6 +93,37 @@ After changing Django serializers, regenerate TypeScript types:
 ```bash
 docker compose exec web pnpm openapi:generate
 ```
+
+## Running a scraping job
+
+You need three API credentials added to `.env.backend`:
+
+| Key | Where to get it | Required for |
+|---|---|---|
+| `OPENAI_API_KEY` | platform.openai.com | Weekly analysis (GPT-4) |
+| `NEWSAPI_KEY` | newsapi.org (free tier available) | NewsAPI scraping |
+| `TWITTER_USERNAME` / `TWITTER_EMAIL` / `TWITTER_PASSWORD` | Your X/Twitter account | Twitter scraping (unofficial, no API key needed) |
+
+The minimum to get started is **NewsAPI + OpenAI**. After adding keys, restart the backend:
+```bash
+docker compose restart api celery_worker
+```
+
+Then trigger scraping and analysis as shown above.
+
+> **Note:** New user accounts are created as inactive by default. A superuser must activate them via the Django admin at http://localhost:8000/admin, or run:
+> ```bash
+> docker compose exec api poetry run python src/manage.py shell -c "
+> from django.contrib.auth import get_user_model
+> get_user_model().objects.filter(username='you@example.com').update(is_active=True)
+> "
+> ```
+
+## Security notes
+
+- **Never commit `.env.backend` or `.env.frontend`** — both are gitignored. They contain your `SECRET_KEY`, `NEXTAUTH_SECRET`, and API keys.
+- **Change the default Postgres password** before any real deployment. It is hardcoded as `change-password` in `docker-compose.yaml` for local dev convenience only.
+- **Set `DEBUG=0`** in `.env.backend` for any non-local environment. Debug mode leaks stack traces and disables Django's security headers.
 
 ## Tech stack
 

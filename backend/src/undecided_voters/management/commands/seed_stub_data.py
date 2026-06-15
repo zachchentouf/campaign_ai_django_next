@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date
 
 from django.core.management.base import BaseCommand
 
@@ -7,7 +7,8 @@ from undecided_voters.models import RawPost, ScrapingRun, WeeklyAnalysis
 
 STUB_WEEKS = [
     {
-        "week_offset": 0,  # most recent week
+        "week_start": date(2024, 10, 21),
+        "week_end": date(2024, 10, 28),
         "source": "newsapi",
         "total_posts_analyzed": 142,
         "reasons": {
@@ -53,7 +54,8 @@ STUB_WEEKS = [
         },
     },
     {
-        "week_offset": 7,
+        "week_start": date(2024, 10, 14),
+        "week_end": date(2024, 10, 21),
         "source": "newsapi",
         "total_posts_analyzed": 118,
         "reasons": {
@@ -96,7 +98,8 @@ STUB_WEEKS = [
         },
     },
     {
-        "week_offset": 14,
+        "week_start": date(2024, 10, 7),
+        "week_end": date(2024, 10, 14),
         "source": "twitter",
         "total_posts_analyzed": 203,
         "reasons": {
@@ -160,16 +163,12 @@ class Command(BaseCommand):
             RawPost.objects.all().delete()
             self.stdout.write(self.style.WARNING("Cleared existing data."))
 
-        today = date.today()
         created = 0
 
         for stub in STUB_WEEKS:
-            week_start = today - timedelta(days=stub["week_offset"])
-            week_end = week_start + timedelta(days=7)
-
             _, was_created = WeeklyAnalysis.objects.update_or_create(
-                week_start=week_start,
-                week_end=week_end,
+                week_start=stub["week_start"],
+                week_end=stub["week_end"],
                 source=stub["source"],
                 defaults={
                     "total_posts_analyzed": stub["total_posts_analyzed"],

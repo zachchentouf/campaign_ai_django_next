@@ -4,6 +4,16 @@
 
 A full-stack political intelligence tool that scrapes social media and news sources, runs weekly AI analysis on undecided voter sentiment, and surfaces results through a Next.js dashboard.
 
+## Screenshots
+
+![Analyses screenshot 1](Screenshot%202026-06-15%20at%205.28.52%E2%80%AFPM.png)
+
+![Analyses screenshot 2](Screenshot%202026-06-15%20at%205.28.56%E2%80%AFPM.png)
+
+![Analyses screenshot 3](Screenshot%202026-06-15%20at%205.28.59%E2%80%AFPM.png)
+
+![Analyses screenshot 4](Screenshot%202026-06-15%20at%205.29.22%E2%80%AFPM.png)
+
 ## What it does
 
 The backend collects posts from Twitter and News API, runs them through OpenAI to produce weekly breakdowns of why voters are undecided (e.g. `{"economy": 45, "healthcare": 30}`), and stores scraped posts, analysis results, and supporting evidence in Postgres. The frontend displays this data and is protected by JWT-based authentication.
@@ -124,16 +134,6 @@ Then trigger scraping and analysis as shown above.
 - **Never commit `.env.backend` or `.env.frontend`** — both are gitignored. They contain your `SECRET_KEY`, `NEXTAUTH_SECRET`, and API keys.
 - **Change the default Postgres password** before any real deployment. It is hardcoded as `change-password` in `docker-compose.yaml` for local dev convenience only.
 - **Set `DEBUG=0`** in `.env.backend` for any non-local environment. Debug mode leaks stack traces and disables Django's security headers.
-
-## Screenshots
-
-![Analyses screenshot 1](Screenshot%202026-06-15%20at%205.28.52%E2%80%AFPM.png)
-
-![Analyses screenshot 2](Screenshot%202026-06-15%20at%205.28.56%E2%80%AFPM.png)
-
-![Analyses screenshot 3](Screenshot%202026-06-15%20at%205.28.59%E2%80%AFPM.png)
-
-![Analyses screenshot 4](Screenshot%202026-06-15%20at%205.29.22%E2%80%AFPM.png)
 
 ## Tech stack
 

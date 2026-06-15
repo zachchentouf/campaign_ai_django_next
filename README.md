@@ -127,14 +127,13 @@ Then trigger scraping and analysis as shown above.
 
 ## Screenshots
 
-**Weekly Voter Sentiment Analyses — Card 1 (NewsAPI, 142 posts)**
-![Analyses week 1](Screenshot%202026-06-15%20at%205.24.25%E2%80%AFPM.png)
+![Analyses screenshot 1](Screenshot%202026-06-15%20at%205.28.52%E2%80%AFPM.png)
 
-**Analyses — Card 2 (NewsAPI, 118 posts)**
-![Analyses week 2](Screenshot%202026-06-15%20at%205.24.31%E2%80%AFPM.png)
+![Analyses screenshot 2](Screenshot%202026-06-15%20at%205.28.56%E2%80%AFPM.png)
 
-**Analyses — Card 3 (Twitter, 203 posts)**
-![Analyses week 3](Screenshot%202026-06-15%20at%205.24.39%E2%80%AFPM.png)
+![Analyses screenshot 3](Screenshot%202026-06-15%20at%205.28.59%E2%80%AFPM.png)
+
+![Analyses screenshot 4](Screenshot%202026-06-15%20at%205.29.22%E2%80%AFPM.png)
 
 ## Tech stack
 

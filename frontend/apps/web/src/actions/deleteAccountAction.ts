@@ -1,10 +1,9 @@
 'use server'
 
 import { getApiClient } from '@/lib/api'
-import { authOptions } from '@/lib/auth'
+import { auth } from '@/lib/auth'
 import type { deleteAccountFormSchema } from '@/lib/validation'
 import { ApiError } from '@frontend/types/api'
-import { getServerSession } from 'next-auth'
 import type { z } from 'zod'
 
 export type DeleteAccountFormSchema = z.infer<typeof deleteAccountFormSchema>
@@ -14,7 +13,7 @@ export type DeleteAccountAction = (
 ) => Promise<boolean>
 
 const deleteAccountAction = async () => {
-  const session = await getServerSession(authOptions)
+  const session = await auth()
 
   try {
     const apiClient = await getApiClient(session)

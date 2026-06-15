@@ -77,7 +77,7 @@ services:
       api:
         condition: service_started
   web:
-    command: bash -c "pnpm install -r && pnpm --filter web dev -- -p 3001"
+    command: bash -c "pnpm install -r && PORT=3001 pnpm --filter web dev"
     build:
       context: frontend
     volumes:

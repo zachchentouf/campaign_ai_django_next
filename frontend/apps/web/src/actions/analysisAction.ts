@@ -1,17 +1,16 @@
 "use server";
 
 import { getApiClient } from "@/lib/api";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import {
   ApiError,
   type PaginatedWeeklyAnalysisList,
 } from "@frontend/types/api";
-import { getServerSession } from "next-auth";
 
 export type AnalysisAction = () => Promise<PaginatedWeeklyAnalysisList | null>;
 
 const analysisAction: AnalysisAction = async () => {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
 
   try {
     const apiClient = await getApiClient(session);

@@ -1,10 +1,9 @@
 'use server'
 
 import { getApiClient } from '@/lib/api'
-import { authOptions } from '@/lib/auth'
+import { auth } from '@/lib/auth'
 import type { changePasswordFormSchema } from '@/lib/validation'
 import { ApiError, type UserChangePasswordError } from '@frontend/types/api'
-import { getServerSession } from 'next-auth'
 import type { z } from 'zod'
 
 export type ChangePasswordFormSchema = z.infer<typeof changePasswordFormSchema>
@@ -14,7 +13,7 @@ export type ChangePasswordAction = (
 ) => Promise<UserChangePasswordError | boolean>
 
 const changePasswordAction: ChangePasswordAction = async (data) => {
-  const session = await getServerSession(authOptions)
+  const session = await auth()
 
   try {
     const apiClient = await getApiClient(session)

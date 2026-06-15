@@ -1,5 +1,5 @@
 import { ApiError } from '@frontend/types/api'
-import type { AuthOptions } from 'next-auth'
+import NextAuth from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { getApiClient } from './api'
 
@@ -15,7 +15,7 @@ const decodeToken = (
   return JSON.parse(atob(token.split('.')[1]))
 }
 
-const authOptions: AuthOptions = {
+export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
     strategy: 'jwt'
   },
@@ -24,84 +24,73 @@ const authOptions: AuthOptions = {
   },
   callbacks: {
     session: async ({ session, token }) => {
-      const access = decodeToken(token.access)
-      const refresh = decodeToken(token.refresh)
+      const access = decodeToken(token.access as string)
+      const refresh = decodeToken(token.refresh as string)
 
       if (Date.now() / 1000 > access.exp && Date.now() / 1000 > refresh.exp) {
-        return Promise.reject({
-          error: new Error('Refresh token expired')
-        })
+        throw new Error('Refresh token expired')
       }
 
       session.user = {
-        id: access.user_id,
-        username: token.username
+        ...session.user,
+        id: String(access.user_id),
+        username: token.username as string,
       }
 
-      session.refreshToken = token.refresh
-      session.accessToken = token.access
+      session.refreshToken = token.refresh as string
+      session.accessToken = token.access as string
 
       return session
     },
     jwt: async ({ token, user }) => {
-      if (user?.username) {
+      if (user && (user as any).username) {
         return { ...token, ...user }
       }
 
-      // Refresh token
-      if (Date.now() / 1000 > decodeToken(token.access).exp) {
+      // Refresh access token if expired
+      if (token.access && Date.now() / 1000 > decodeToken(token.access as string).exp) {
         const apiClient = await getApiClient()
         const res = await apiClient.token.tokenRefreshCreate({
-          access: token.access,
-          refresh: token.refresh
+          access: token.access as string,
+          refresh: token.refresh as string
         })
-
         token.access = res.access
       }
 
-      return { ...token, ...user }
+      return token
     }
   },
   providers: [
     CredentialsProvider({
       name: 'credentials',
       credentials: {
-        username: {
-          label: 'Email',
-          type: 'text'
-        },
+        username: { label: 'Email', type: 'text' },
         password: { label: 'Password', type: 'password' }
       },
       async authorize(credentials) {
-        if (credentials === undefined) {
-          return null
-        }
+        if (!credentials?.username || !credentials?.password) return null
 
         try {
           const apiClient = await getApiClient()
           const res = await apiClient.token.tokenCreate({
-            username: credentials.username,
-            password: credentials.password,
+            username: credentials.username as string,
+            password: credentials.password as string,
             access: '',
             refresh: ''
           })
 
           return {
-            id: decodeToken(res.access).user_id,
+            id: String(decodeToken(res.access).user_id),
             username: credentials.username,
             access: res.access,
             refresh: res.refresh
           }
         } catch (error) {
-          if (error instanceof ApiError) {
-            return null
-          }
+          if (error instanceof ApiError) return null
         }
 
         return null
       }
     })
   ]
-}
-
-export { authOptions }
+})

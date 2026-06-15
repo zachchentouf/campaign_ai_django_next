@@ -2,14 +2,18 @@ import 'next-auth'
 
 declare module 'next-auth' {
   interface User {
-    id: number
     username: string
+    access: string
+    refresh: string
   }
 
   interface Session {
     refreshToken: string
     accessToken: string
-    user: User
+    user: {
+      id: string
+      username: string
+    }
   }
 }
 
